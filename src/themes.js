@@ -255,6 +255,54 @@ const COMMENT_SELECTORS = `
   #comments
 `;
 
+// ── Color utility: hex → HSL (for CSS filter calculation) ──
+
+/**
+ * Convert a hex color string to { h, s, l } (h in degrees, s and l in 0–1).
+ * Used to calculate hue-rotate for theming the YTM logo SVG.
+ */
+function hexToHSL(hex) {
+  if (!hex || typeof hex !== 'string') return { h: 0, s: 0, l: 0 };
+  hex = hex.replace(/^#/, '');
+  if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: Math.round(h * 360), s, l };
+}
+
+/**
+ * Compute CSS filter string to recolor the YTM logo from its original
+ * red (#ff0000, hue 0°) to the theme accent color.
+ *
+ * The logo SVG uses #ff0000 as the primary color. By applying hue-rotate,
+ * we shift it to the accent hue. Saturation and brightness adjustments
+ * ensure the recolored logo matches the theme's visual weight.
+ */
+function logoFilter(accent) {
+  const accentHSL = hexToHSL(accent);
+  // hue-rotate from red (0°) to the accent hue
+  const hueRotate = accentHSL.h;
+  // Keep the logo vivid — floor at 80% so even low-saturation accents stay colorful
+  const saturate = Math.max(80, Math.round(accentHSL.s * 120));
+  // Brightness boost to pop on dark backgrounds — based on accent lightness
+  const brightness = Math.max(90, Math.round(70 + accentHSL.l * 80));
+  return `hue-rotate(${hueRotate}deg) saturate(${saturate}%) brightness(${brightness}%)`;
+}
+
 // ── Build theme CSS from color values ──
 
 function buildThemeCSS(colors) {
@@ -1673,6 +1721,25 @@ function buildThemeCSS(colors) {
     ytmusic-volume-slider {
       --paper-slider-active-color: ${colors.accent} !important;
       --paper-slider-knob-color: ${colors.accent} !important;
+    }
+
+    /* === YTM nav-bar logo theming === */
+    /* The YouTube Music logo in the sidebar/nav uses an SVG image with
+       red (#ff0000) as the primary color. CSS filter hue-rotate shifts
+       the hue from red (0°) to the theme accent color's hue angle.
+       Saturation and brightness are adjusted to match the accent's
+       visual weight so the logo feels cohesive with the theme. */
+    ytmusic-logo img.logo,
+    ytmusic-logo picture img,
+    ytmusic-logo .logo,
+    a.yt-simple-endpoint.ytmusic-logo img,
+    a.yt-simple-endpoint.ytmusic-logo picture img {
+      filter: ${logoFilter(colors.accent)} !important;
+    }
+    /* Logo hover state — slight brightness lift for interactivity */
+    a.yt-simple-endpoint.ytmusic-logo:hover img,
+    a.yt-simple-endpoint.ytmusic-logo:hover picture img {
+      filter: ${logoFilter(colors.accent)} brightness(1.15) !important;
     }
   `;
 }
