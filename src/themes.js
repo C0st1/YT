@@ -285,22 +285,31 @@ function hexToHSL(hex) {
 }
 
 /**
- * Compute CSS filter string to recolor the YTM logo from its original
- * red (#ff0000, hue 0°) to the theme accent color.
+ * Compute CSS filter string to recolor the YTM logo (icon + "Music" text)
+ * from the original red (#ff0000) icon + white (#ffffff) text to the theme
+ * accent color.
  *
- * The logo SVG uses #ff0000 as the primary color. By applying hue-rotate,
- * we shift it to the accent hue. Saturation and brightness adjustments
- * ensure the recolored logo matches the theme's visual weight.
+ * The logo SVG contains both the red play-button icon and the white
+ * "Music" text as a single image. A plain hue-rotate only shifts the red
+ * icon while leaving the white text unchanged. To recolor BOTH parts we
+ * use the sepia technique:
+ *
+ *   1. sepia(1)  — converts everything to a warm sepia tone (~hue 40°).
+ *                   Red becomes a darker sepia; white becomes a lighter sepia.
+ *   2. hue-rotate — shifts from sepia's ~40° to the target accent hue.
+ *   3. saturate   — restores color intensity (sepia desaturates).
+ *   4. brightness — fine-tunes so the icon is vivid and the text is a
+ *                   lighter tint, preserving natural contrast between them.
  */
 function logoFilter(accent) {
   const accentHSL = hexToHSL(accent);
-  // hue-rotate from red (0°) to the accent hue
-  const hueRotate = accentHSL.h;
-  // Keep the logo vivid — floor at 80% so even low-saturation accents stay colorful
-  const saturate = Math.max(80, Math.round(accentHSL.s * 120));
-  // Brightness boost to pop on dark backgrounds — based on accent lightness
-  const brightness = Math.max(90, Math.round(70 + accentHSL.l * 80));
-  return `hue-rotate(${hueRotate}deg) saturate(${saturate}%) brightness(${brightness}%)`;
+  // sepia(1) produces base hue ~40°, rotate from there to accent hue
+  const hueRotate = accentHSL.h > 40 ? accentHSL.h - 40 : accentHSL.h + 320;
+  // Saturation: accent saturation drives color intensity; floor at 150%
+  const saturate = Math.max(150, Math.round(accentHSL.s * 300));
+  // Brightness: balance so icon is vivid and text is a lighter tint
+  const brightness = Math.max(80, Math.round(50 + accentHSL.l * 110));
+  return `sepia(1) hue-rotate(${hueRotate}deg) saturate(${saturate}%) brightness(${brightness}%)`;
 }
 
 // ── Build theme CSS from color values ──
