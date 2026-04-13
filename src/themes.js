@@ -255,45 +255,6 @@ const COMMENT_SELECTORS = `
   #comments
 `;
 
-// ── Hex color → CSS filter chain (for recoloring SVG <img> elements) ──
-// Converts any hex color to a filter that starts from black and lands on
-// the target hue/saturation/lightness.  Used to recolor the YTM logo image.
-function hexToFilter(hex) {
-  // Normalise 3-digit shorthand (#abc → #aabbcc)
-  let h = hex.replace('#', '');
-  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-
-  const r = parseInt(h.slice(0, 2), 16) / 255;
-  const g = parseInt(h.slice(2, 4), 16) / 255;
-  const b = parseInt(h.slice(4, 6), 16) / 255;
-
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let hDeg = 0, sat = 0;
-  const lig = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    sat = lig > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: hDeg = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
-      case g: hDeg = ((b - r) / d + 2) * 60; break;
-      case b: hDeg = ((r - g) / d + 4) * 60; break;
-    }
-  }
-
-  // Pipeline: brightness(0) → black
-  //           invert(1)     → white
-  //           sepia(1)      → warm brown  (H≈38°, S≈66%, L≈70%)
-  //           hue-rotate    → spin to target hue
-  //           saturate      → scale to target saturation
-  //           brightness    → scale to target lightness
-  const hueRotate  = Math.round(hDeg - 38);
-  const saturatePct = Math.round((sat / 0.66) * 100);
-  const brightMul  = (lig / 0.70).toFixed(2);
-
-  return `brightness(0) saturate(100%) invert(1) sepia(1) saturate(${saturatePct}%) hue-rotate(${hueRotate}deg) brightness(${brightMul})`;
-}
-
 // ── Build theme CSS from color values ──
 
 function buildThemeCSS(colors) {
@@ -1712,25 +1673,6 @@ function buildThemeCSS(colors) {
     ytmusic-volume-slider {
       --paper-slider-active-color: ${colors.accent} !important;
       --paper-slider-knob-color: ${colors.accent} !important;
-    }
-
-    /* === YouTube Music Logo (icon + "Music" wordmark) === */
-    /* The logo is a single SVG loaded as <img> — CSS fill/color don't apply.
-       We use a filter chain (black → invert → sepia → hue-rotate → saturate →
-       brightness) to land on the theme's accent color.
-       Three selectors cover light-DOM, short structural, and full Shady-DOM paths. */
-    img.logo.style-scope.ytmusic-logo,
-    ytmusic-logo.style-scope.ytmusic-nav-bar a picture img.logo,
-    ytmusic-logo.style-scope.ytmusic-nav-bar a.yt-simple-endpoint picture.style-scope img.logo.style-scope {
-      filter: ${hexToFilter(colors.accent)} !important;
-      opacity: 0.90 !important;
-      transition: opacity 0.2s ease, filter 0.2s ease !important;
-    }
-    img.logo.style-scope.ytmusic-logo:hover,
-    ytmusic-logo.style-scope.ytmusic-nav-bar a picture img.logo:hover,
-    ytmusic-logo.style-scope.ytmusic-nav-bar a.yt-simple-endpoint picture.style-scope img.logo.style-scope:hover {
-      filter: ${hexToFilter(colors.accent)} brightness(1.2) !important;
-      opacity: 1 !important;
     }
   `;
 }
