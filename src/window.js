@@ -286,6 +286,99 @@ const VISUALIZER_INJECT_SCRIPT = `
 `;
 
 /**
+ * Auto-dismiss YouTube cookie consent / GDPR popup.
+ *
+ * On first launch (or after clearing the app's Roaming data) YouTube shows
+ * a "Before you continue to YouTube" consent dialog.  This script watches
+ * for the dialog and clicks "Reject all" automatically, so the user never
+ * sees it.  A MutationObserver keeps watching in case YouTube re-injects
+ * the dialog after SPA navigation.
+ */
+const CONSENT_AUTO_DISMISS_SCRIPT = `
+(function () {
+  if (window.__ytmConsentDismiss) return;
+  window.__ytmConsentDismiss = true;
+
+  function dismissConsent() {
+    // Strategy 1: Click "Reject all" / "Reject all" button by text content
+    const allButtons = document.querySelectorAll('button, yt-button-shape');
+    for (const btn of allButtons) {
+      const text = (btn.textContent || '').trim().toLowerCase();
+      if (text === 'reject all') {
+        btn.click();
+        console.debug('[consent] Clicked Reject all button');
+        return true;
+      }
+    }
+
+    // Strategy 2: Click the consent dialog's action button via YTM custom elements
+    const rejectBtn = document.querySelector(
+      'ytd-consent-bump-v2-lightbox .reject-all-button, ' +
+      'yt-consent-bump-v2-lightbox .reject-all-button, ' +
+      'ytd-enforcement-message-view-model .reject-all-button, ' +
+      '.consent-bump-v2-lightbox .reject-all-button'
+    );
+    if (rejectBtn) {
+      rejectBtn.click();
+      console.debug('[consent] Clicked .reject-all-button');
+      return true;
+    }
+
+    // Strategy 3: Look for buttons inside the consent dialog paper-dialog
+    const dialog = document.querySelector(
+      'tp-yt-paper-dialog ytd-consent-bump-v2-lightbox, ' +
+      'tp-yt-paper-dialog ytd-enforcement-message-view-model, ' +
+      'tp-yt-paper-dialog yt-consent-bump-v2-lightbox'
+    );
+    if (dialog) {
+      const buttons = dialog.querySelectorAll('button, yt-button-shape');
+      for (const btn of buttons) {
+        const text = (btn.textContent || '').trim().toLowerCase();
+        if (text.includes('reject') || text.includes('decline')) {
+          btn.click();
+          console.debug('[consent] Clicked reject/decline inside dialog');
+          return true;
+        }
+      }
+      // Fallback: if only "Accept all" is found, click that to dismiss
+      for (const btn of buttons) {
+        const text = (btn.textContent || '').trim().toLowerCase();
+        if (text === 'accept all') {
+          btn.click();
+          console.debug('[consent] Clicked Accept all as fallback');
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // Try immediately in case the dialog is already in the DOM
+  dismissConsent();
+
+  // Poll for a short period (the dialog may load asynchronously)
+  let attempts = 0;
+  const pollTimer = setInterval(() => {
+    if (dismissConsent() || attempts > 30) {
+      clearInterval(pollTimer);
+    }
+    attempts++;
+  }, 500);
+
+  // Also watch for the dialog being injected at any time via MutationObserver
+  new MutationObserver(() => {
+    dismissConsent();
+  }).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+
+  console.debug('[consent] Auto-dismiss script active');
+})();
+`;
+
+/**
  * Script to extract visualizer data from the YTM page.
  */
 const GET_VISUALIZER_DATA_SCRIPT = `
@@ -402,6 +495,11 @@ function injectAdBlocking(wc) {
   wc.executeJavaScript(getVideoAdBlockerScript())
     .then(() => log.info('[adblocker] Proactive ad blocker injected'))
     .catch(err => log.error('[adblocker] Failed to inject ad blocker:', err.message));
+
+  // Auto-dismiss YouTube cookie consent / GDPR popup
+  wc.executeJavaScript(CONSENT_AUTO_DISMISS_SCRIPT)
+    .then(() => log.info('[consent] Cookie consent auto-dismiss injected'))
+    .catch(err => log.error('[consent] Failed to inject consent auto-dismiss:', err.message));
 }
 
 function injectVisualizer(wc) {

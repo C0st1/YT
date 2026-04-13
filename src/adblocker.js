@@ -191,6 +191,22 @@ const AD_BLOCK_CSS = `
     display: none !important;
   }
 
+  /* ── YouTube cookie consent dialog (GDPR popup) ── */
+  /* Auto-dismissed by JS; hidden via CSS to prevent flash */
+  ytd-consent-bump-v2-lightbox,
+  yt-consent-bump-v2-lightbox,
+  .consent-bump-v2-lightbox,
+  ytd-enforcement-message-view-model,
+  ytd-cookie-warning-renderer,
+  #consent-bump-v2-lightbox,
+  tp-yt-paper-dialog:has(ytd-consent-bump-v2-lightbox),
+  tp-yt-paper-dialog:has(ytd-enforcement-message-view-model) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
   /* ── Prevent ad-related elements from being visible even briefly ── */
   /* These use visibility+opacity instead of display so they don't
      cause layout shifts, but still prevent any visual flash */
