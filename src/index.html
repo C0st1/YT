@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'nonce-NONCE_PLACEHOLDER'; style-src 'nonce-NONCE_PLACEHOLDER'; img-src 'self' data: https:; connect-src https:;">
+  <title>Youtube Music Desktop</title>
+  <style nonce="NONCE_PLACEHOLDER">
+    :root {
+      --bg-primary: #030303;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #aaaaaa;
+      --text-muted: #888888;
+      --border-color: #333333;
+      --accent: #ff0000;
+    }
+    [data-theme="light"] {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f5;
+      --bg-tertiary: #e8e8e8;
+      --text-primary: #1a1a1a;
+      --text-secondary: #555555;
+      --text-muted: #888888;
+      --border-color: #dddddd;
+      --accent: #ff0000;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-secondary);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-primary);
+      transition: background 0.2s, color 0.2s;
+    }
+    #title-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 32px;
+      background: var(--bg-secondary);
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 100;
+      -webkit-app-region: drag;
+      user-select: none;
+      border-bottom: 1px solid var(--border-color);
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #title-bar-left {
+      display: flex; align-items: center;
+      padding-left: 12px; gap: 10px;
+      flex: 1; overflow: hidden;
+    }
+    #app-icon { width: 20px; height: 20px; flex-shrink: 0; }
+    #app-title { color: var(--text-primary); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    #track-info {
+      color: var(--text-muted); font-size: 11px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-left: 8px; max-width: 300px;
+    }
+    /* Visualizer bars — uses transform:scaleY() for artifact-free rendering */
+    #visualizer {
+      display: none;
+      align-items: flex-end;
+      gap: 1px;
+      height: 20px;
+      margin-left: 8px;
+      -webkit-app-region: no-drag;
+      overflow: hidden;
+    }
+    #visualizer.visible { display: flex; }
+    .viz-bar {
+      width: 3px;
+      height: 20px;
+      transform: scaleY(0);
+      transform-origin: bottom center;
+      border-radius: 2px 2px 0 0;
+      will-change: transform;
+    }
+    /* Lyrics display in the title bar */
+    #lyrics-display {
+      display: none;
+      color: var(--text-secondary); font-size: 11px; font-style: italic;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-left: 8px; max-width: 200px;
+    }
+    #lyrics-display.visible { display: inline; }
+    #window-controls { display: flex; -webkit-app-region: no-drag; }
+    .window-btn {
+      width: 46px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none;
+      color: var(--text-primary); cursor: pointer;
+      transition: background 0.15s;
+    }
+    .window-btn:hover { background: rgba(255, 255, 255, 0.1); }
+    [data-theme="light"] .window-btn:hover { background: rgba(0, 0, 0, 0.1); }
+    .window-btn svg { width: 16px; height: 16px; fill: currentColor; }
+    #close-btn:hover { background: #e81123 !important; }
+    #nav-controls {
+      display: flex; gap: 4px; margin-left: 8px;
+      -webkit-app-region: no-drag;
+    }
+    .nav-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none;
+      color: var(--text-primary); cursor: pointer;
+      border-radius: 4px; transition: background 0.15s, opacity 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+    [data-theme="light"] .nav-btn:hover:not(:disabled) { background: rgba(0, 0, 0, 0.1); }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .nav-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    #shortcuts-modal {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none; align-items: center; justify-content: center;
+      z-index: 9999999;
+    }
+    #shortcuts-modal.visible { display: flex; }
+    .shortcuts-panel {
+      background: var(--bg-secondary); border-radius: 12px;
+      padding: 24px; max-width: 500px; width: 90%;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      max-height: 80vh; overflow-y: auto;
+    }
+    .shortcuts-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px;
+    }
+    .shortcuts-title { color: var(--text-primary); font-size: 18px; font-weight: 600; }
+    .shortcuts-close {
+      background: transparent; border: none;
+      color: var(--text-muted); cursor: pointer; padding: 4px;
+      font-size: 18px;
+    }
+    .shortcuts-close:hover { color: var(--text-primary); }
+    .shortcuts-list { display: flex; flex-direction: column; gap: 8px; }
+    .shortcut-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .shortcut-item:last-child { border-bottom: none; }
+    .shortcut-action { color: var(--text-secondary); font-size: 13px; flex: 1; min-width: 0; }
+    .shortcut-right { display: flex; align-items: center; gap: 8px; }
+    .shortcut-keys { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+    .key {
+      background: var(--bg-tertiary); color: var(--text-primary);
+      padding: 3px 7px; border-radius: 4px;
+      font-size: 11px; font-family: monospace;
+      border: 1px solid var(--border-color);
+    }
+    .record-btn {
+      background: var(--bg-tertiary); color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 3px 8px; cursor: pointer;
+      font-size: 11px; transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .record-btn:hover { background: var(--border-color); color: var(--text-primary); }
+    .record-btn.recording {
+      background: #e81123; color: #fff; border-color: #e81123;
+      animation: pulse-record 1s infinite;
+    }
+    @keyframes pulse-record {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .shortcut-item.media-key .record-btn { display: none; }
+    .shortcut-hint {
+      color: var(--text-muted); font-size: 11px;
+      text-align: center; padding: 8px 0;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div id="title-bar">
+    <div id="title-bar-left">
+      <svg id="app-icon" viewBox="0 0 24 24">
+        <path fill="#ff0000" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+      </svg>
+      <span id="app-title">Youtube Music Desktop</span>
+      <div id="nav-controls">
+        <button class="nav-btn" id="back-btn" title="Go Back" disabled>
+          <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        </button>
+        <button class="nav-btn" id="forward-btn" title="Go Forward" disabled>
+          <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </button>
+      </div>
+      <span id="track-info"></span>
+      <div id="visualizer"></div>
+      <span id="lyrics-display"></span>
+    </div>
+    <div id="window-controls">
+      <button class="window-btn" id="minimize-btn" title="Minimize">
+        <svg viewBox="0 0 24 24"><path d="M6 19h12v2H6z"/></svg>
+      </button>
+      <button class="window-btn" id="maximize-btn" title="Maximize">
+        <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5z"/></svg>
+      </button>
+      <button class="window-btn" id="close-btn" title="Close">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!--
+    FIX v21: Shortcuts modal now works because the main process hides the
+    musicView WebContentsView when the modal is shown. The musicView normally
+    renders on top of this HTML, so the modal was invisible before.
+  -->
+  <div id="shortcuts-modal">
+    <div class="shortcuts-panel">
+      <div class="shortcuts-header">
+        <span class="shortcuts-title">Keyboard Shortcuts</span>
+        <button class="shortcuts-close" id="close-shortcuts">&times;</button>
+      </div>
+      <div class="shortcuts-list" id="shortcuts-list">
+        <!-- Populated dynamically from store -->
+      </div>
+    </div>
+  </div>
+
+  <script nonce="NONCE_PLACEHOLDER">
+    const api = window.electronAPI;
+
+    // ── Track if lyrics are enabled (respects toggle) ──
+    let lyricsEnabled = false;
+
+    // ── Theme management ──
+    function setTheme(theme) {
+      document.body.setAttribute('data-theme', theme);
+    }
+    api.onThemeChanged((theme) => setTheme(theme));
+    api.getTheme().then(setTheme).catch(() => {});
+
+    // ── YTM Theme color sync ──
+    function applyYtmThemeColors(colors) {
+      const root = document.documentElement;
+      if (!colors) {
+        root.style.removeProperty('--bg-secondary');
+        root.style.removeProperty('--bg-tertiary');
+        root.style.removeProperty('--bg-primary');
+        root.style.removeProperty('--text-primary');
+        root.style.removeProperty('--text-secondary');
+        root.style.removeProperty('--text-muted');
+        root.style.removeProperty('--border-color');
+        root.style.removeProperty('--accent');
+        return;
+      }
+      root.style.setProperty('--bg-secondary', colors.bgNav);
+      root.style.setProperty('--bg-tertiary', colors.bgNav);
+      root.style.setProperty('--bg-primary', colors.bg);
+      root.style.setProperty('--text-primary', colors.text);
+      root.style.setProperty('--text-secondary', colors.textMuted);
+      root.style.setProperty('--text-muted', colors.textMuted);
+      root.style.setProperty('--border-color', colors.bgInput);
+      root.style.setProperty('--accent', colors.accent);
+    }
+    api.onYtmThemeColors((colors) => applyYtmThemeColors(colors));
+    api.getYtmThemeColors().then((colors) => {
+      if (colors) applyYtmThemeColors(colors);
+    }).catch(() => {});
+
+    // Window controls
+    document.getElementById('minimize-btn').addEventListener('click', () => api.minimizeWindow());
+    document.getElementById('maximize-btn').addEventListener('click', () => api.maximizeWindow());
+    document.getElementById('close-btn').addEventListener('click', () => api.closeWindow());
+    document.getElementById('title-bar').addEventListener('dblclick', (e) => {
+      if (!e.target.closest('#window-controls') && !e.target.closest('#nav-controls')) api.maximizeWindow();
+    });
+
+    // ── Shortcuts modal ──
+    const shortcutsModal = document.getElementById('shortcuts-modal');
+    const closeShortcuts = document.getElementById('close-shortcuts');
+    const shortcutsList = document.getElementById('shortcuts-list');
+
+    /**
+     * Close the shortcuts modal and notify the main process so it can
+     * restore the musicView bounds.
+     */
+    function closeShortcutsModal() {
+      if (!shortcutsModal.classList.contains('visible')) return;
+      shortcutsModal.classList.remove('visible');
+      api.shortcutsModalClosed();
+    }
+
+    // ── Shortcut recording state ──
+    let recordingAction = null;
+    let recordingItem = null;
+
+    /**
+     * Open the shortcuts modal.
+     */
+    function openShortcutsModal() {
+      // Populate shortcuts list from store
+      api.getShortcuts().then((data) => {
+        shortcutsList.innerHTML = '';
+        if (!data || !data.actions) return;
+
+        const mediaKeyActions = new Set(['play-pause', 'next', 'previous', 'stop', 'volume-up', 'volume-down', 'mute']);
+
+        for (const [action, info] of Object.entries(data.actions)) {
+          const accelerator = (data.current && data.current[action]) || '';
+          if (!accelerator) continue;
+          const isMediaKey = mediaKeyActions.has(action);
+
+          const item = document.createElement('div');
+          item.className = 'shortcut-item' + (isMediaKey ? ' media-key' : '');
+          item.dataset.action = action;
+
+          const actionSpan = document.createElement('span');
+          actionSpan.className = 'shortcut-action';
+          actionSpan.textContent = info.label || action;
+
+          const rightDiv = document.createElement('div');
+          rightDiv.className = 'shortcut-right';
+
+          const keysDiv = document.createElement('div');
+          keysDiv.className = 'shortcut-keys';
+          accelerator.split('+').forEach((k) => {
+            const keySpan = document.createElement('span');
+            keySpan.className = 'key';
+            keySpan.textContent = k;
+            keysDiv.appendChild(keySpan);
+          });
+
+          const recordBtn = document.createElement('button');
+          recordBtn.className = 'record-btn';
+          recordBtn.textContent = '\u270F Edit';
+          recordBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            startRecording(action, item, keysDiv, recordBtn);
+          });
+
+          rightDiv.appendChild(keysDiv);
+          rightDiv.appendChild(recordBtn);
+
+          item.appendChild(actionSpan);
+          item.appendChild(rightDiv);
+          shortcutsList.appendChild(item);
+        }
+
+        // Add hint
+        const hint = document.createElement('div');
+        hint.className = 'shortcut-hint';
+        hint.textContent = 'Click Edit to rebind a shortcut. Media keys are handled by the OS.';
+        shortcutsList.appendChild(hint);
+      }).catch(() => {});
+
+      shortcutsModal.classList.add('visible');
+    }
+
+    /**
+     * Start recording a new key binding for an action.
+     */
+    function startRecording(action, item, keysDiv, recordBtn) {
+      // Cancel any existing recording
+      if (recordingAction && recordingItem) {
+        cancelRecording();
+      }
+
+      recordingAction = action;
+      recordingItem = item;
+      recordBtn.classList.add('recording');
+      recordBtn.textContent = '\u23CF Recording...';
+      keysDiv.innerHTML = '<span class="key" style="color: var(--accent);">Press keys...</span>';
+
+      // Listen for keydown to capture the new shortcut
+      const captureHandler = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Ignore modifier-only presses
+        if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+        // Escape cancels recording
+        if (e.key === 'Escape') {
+          cancelRecording();
+          document.removeEventListener('keydown', captureHandler, true);
+          return;
+        }
+
+        // Build the accelerator string
+        const parts = [];
+        if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+        if (e.shiftKey) parts.push('Shift');
+        if (e.altKey) parts.push('Alt');
+
+        // Map key names to Electron accelerator format
+        let key = e.key;
+        if (key === ' ') key = 'Space';
+        else if (key === '+') key = 'Plus';
+        else if (key.length === 1) key = key.toUpperCase();
+        else key = key.charAt(0).toUpperCase() + key.slice(1);
+
+        parts.push(key);
+        const newAccelerator = parts.join('+');
+
+        // Save the new shortcut
+        api.updateShortcut(action, newAccelerator).then((success) => {
+          if (success) {
+            // Update the displayed keys
+            keysDiv.innerHTML = '';
+            newAccelerator.split('+').forEach((k) => {
+              const keySpan = document.createElement('span');
+              keySpan.className = 'key';
+              keySpan.textContent = k;
+              keysDiv.appendChild(keySpan);
+            });
+            recordBtn.classList.remove('recording');
+            recordBtn.textContent = '\u270F Edit';
+            recordingAction = null;
+            recordingItem = null;
+          }
+        }).catch(() => {
+          cancelRecording();
+        });
+
+        document.removeEventListener('keydown', captureHandler, true);
+      };
+
+      document.addEventListener('keydown', captureHandler, true);
+    }
+
+    /**
+     * Cancel the current recording.
+     */
+    function cancelRecording() {
+      if (recordingItem) {
+        const btn = recordingItem.querySelector('.record-btn');
+        if (btn) {
+          btn.classList.remove('recording');
+          btn.textContent = '\u270F Edit';
+        }
+      }
+      // Re-populate to restore original key display
+      if (recordingAction) {
+        api.getShortcuts().then((data) => {
+          if (!data || !data.current) return;
+          const accel = data.current[recordingAction] || '';
+          if (recordingItem) {
+            const keysDiv = recordingItem.querySelector('.shortcut-keys');
+            if (keysDiv && accel) {
+              keysDiv.innerHTML = '';
+              accel.split('+').forEach((k) => {
+                const keySpan = document.createElement('span');
+                keySpan.className = 'key';
+                keySpan.textContent = k;
+                keysDiv.appendChild(keySpan);
+              });
+            }
+          }
+        }).catch(() => {});
+      }
+      recordingAction = null;
+      recordingItem = null;
+    }
+
+    closeShortcuts.addEventListener('click', closeShortcutsModal);
+    shortcutsModal.addEventListener('click', (e) => {
+      if (e.target === shortcutsModal) closeShortcutsModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && shortcutsModal.classList.contains('visible')) {
+        closeShortcutsModal();
+      }
+    });
+
+    // Toggle from global shortcut (Ctrl+/)
+    api.onToggleShortcutsModal(() => {
+      if (shortcutsModal.classList.contains('visible')) {
+        closeShortcutsModal();
+      } else {
+        openShortcutsModal();
+      }
+    });
+
+    // Navigation controls
+    const backBtn = document.getElementById('back-btn');
+    const forwardBtn = document.getElementById('forward-btn');
+    backBtn.addEventListener('click', () => api.goBack());
+    forwardBtn.addEventListener('click', () => api.goForward());
+    api.onNavigationState((state) => {
+      backBtn.disabled = !state.canGoBack;
+      forwardBtn.disabled = !state.canGoForward;
+    });
+    api.getNavigationState().then((state) => {
+      backBtn.disabled = !state.canGoBack;
+      forwardBtn.disabled = !state.canGoForward;
+    }).catch(() => {});
+
+    // Track info updates
+    const trackInfo = document.getElementById('track-info');
+    api.onTrackChanged((track) => {
+      if (track && track.title) {
+        const displayText = track.artist ? track.title + ' - ' + track.artist : track.title;
+        trackInfo.textContent = displayText;
+        document.title = track.title + ' - Youtube Music Desktop';
+      } else {
+        trackInfo.textContent = '';
+        document.title = 'Youtube Music Desktop';
+      }
+    });
+
+    // ── Visualizer (rainbow, artifact-free using transform:scaleY) ──
+    const visualizerEl = document.getElementById('visualizer');
+    // VIZ_BAR_COUNT must match VISUALIZER_BAR_COUNT in config.js.
+    // This value is injected by the main process when loading the HTML;
+    // if not injected, defaults to 24 to match the config.
+    const VIZ_BAR_COUNT = 24;
+    const vizBars = [];
+    for (let i = 0; i < VIZ_BAR_COUNT; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'viz-bar';
+      const hue = Math.round((i / VIZ_BAR_COUNT) * 360);
+      bar.style.background = 'hsl(' + hue + ', 100%, 55%)';
+      visualizerEl.appendChild(bar);
+      vizBars.push(bar);
+    }
+
+    api.onVisualizerData((data) => {
+      if (!data || !Array.isArray(data)) return;
+      for (let i = 0; i < vizBars.length; i++) {
+        const val = data[i] || 0;
+        const scale = val / 255;
+        vizBars[i].style.transform = 'scaleY(' + scale + ')';
+      }
+    });
+
+    api.onVisualizerToggled((enabled) => {
+      visualizerEl.classList.toggle('visible', enabled);
+      if (!enabled) {
+        vizBars.forEach(bar => { bar.style.transform = 'scaleY(0)'; });
+      }
+    });
+
+    api.getSettings().then((settings) => {
+      if (settings && settings.showVisualizer) {
+        visualizerEl.classList.add('visible');
+      }
+    }).catch(() => {});
+
+    // ── Lyrics (respect toggle) ──
+    const lyricsDisplay = document.getElementById('lyrics-display');
+
+    api.getSettings().then((settings) => {
+      lyricsEnabled = settings && settings.showLyrics;
+    }).catch(() => {});
+
+    api.onLyricsUpdate((data) => {
+      if (!lyricsEnabled) {
+        lyricsDisplay.textContent = '';
+        lyricsDisplay.classList.remove('visible');
+        return;
+      }
+      if (data && data.current) {
+        lyricsDisplay.textContent = data.current;
+        lyricsDisplay.classList.add('visible');
+      } else {
+        lyricsDisplay.textContent = '';
+        lyricsDisplay.classList.remove('visible');
+      }
+    });
+
+    api.onLyricsToggled((enabled) => {
+      lyricsEnabled = enabled;
+      if (!enabled) {
+        lyricsDisplay.textContent = '';
+        lyricsDisplay.classList.remove('visible');
+      }
+    });
+  </script>
+</body>
+</html>
