@@ -255,63 +255,6 @@ const COMMENT_SELECTORS = `
   #comments
 `;
 
-// ── Color utility: hex → HSL (for CSS filter calculation) ──
-
-/**
- * Convert a hex color string to { h, s, l } (h in degrees, s and l in 0–1).
- * Used to calculate hue-rotate for theming the YTM logo SVG.
- */
-function hexToHSL(hex) {
-  if (!hex || typeof hex !== 'string') return { h: 0, s: 0, l: 0 };
-  hex = hex.replace(/^#/, '');
-  if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-  const r = parseInt(hex.substring(0, 2), 16) / 255;
-  const g = parseInt(hex.substring(2, 4), 16) / 255;
-  const b = parseInt(hex.substring(4, 6), 16) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0, s = 0;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
-    }
-  }
-  return { h: Math.round(h * 360), s, l };
-}
-
-/**
- * Compute CSS filter string to recolor the YTM logo (icon + "Music" text)
- * from the original red (#ff0000) icon + white (#ffffff) text to the theme
- * accent color.
- *
- * The logo SVG contains both the red play-button icon and the white
- * "Music" text as a single image. A plain hue-rotate only shifts the red
- * icon while leaving the white text unchanged. To recolor BOTH parts we
- * use the sepia technique:
- *
- *   1. sepia(1)  — converts everything to a warm sepia tone (~hue 40°).
- *                   Red becomes a darker sepia; white becomes a lighter sepia.
- *   2. hue-rotate — shifts from sepia's ~40° to the target accent hue.
- *   3. saturate   — restores color intensity (sepia desaturates).
- *   4. brightness — fine-tunes so the icon is vivid and the text is a
- *                   lighter tint, preserving natural contrast between them.
- */
-function logoFilter(accent) {
-  const accentHSL = hexToHSL(accent);
-  // sepia(1) produces base hue ~40°, rotate from there to accent hue
-  const hueRotate = accentHSL.h > 40 ? accentHSL.h - 40 : accentHSL.h + 320;
-  // Saturation: accent saturation drives color intensity; floor at 150%
-  const saturate = Math.max(150, Math.round(accentHSL.s * 300));
-  // Brightness: balance so icon is vivid and text is a lighter tint
-  const brightness = Math.max(80, Math.round(50 + accentHSL.l * 110));
-  return `sepia(1) hue-rotate(${hueRotate}deg) saturate(${saturate}%) brightness(${brightness}%)`;
-}
-
 // ── Build theme CSS from color values ──
 
 function buildThemeCSS(colors) {
@@ -1732,23 +1675,23 @@ function buildThemeCSS(colors) {
       --paper-slider-knob-color: ${colors.accent} !important;
     }
 
-    /* === YTM nav-bar logo theming === */
-    /* The YouTube Music logo in the sidebar/nav uses an SVG image with
-       red (#ff0000) as the primary color. CSS filter hue-rotate shifts
-       the hue from red (0°) to the theme accent color's hue angle.
-       Saturation and brightness are adjusted to match the accent's
-       visual weight so the logo feels cohesive with the theme. */
-    ytmusic-logo img.logo,
-    ytmusic-logo picture img,
-    ytmusic-logo .logo,
-    a.yt-simple-endpoint.ytmusic-logo img,
-    a.yt-simple-endpoint.ytmusic-logo picture img {
-      filter: ${logoFilter(colors.accent)} !important;
+    /* === YouTube Music Logo === */
+    /* Targets the nav-bar logo <img> (the "Music" wordmark SVG).
+       Full CSS path:
+         ytmusic-nav-bar > #left-content > ytmusic-logo > a > picture > img.logo
+       Applies a themed accent drop-shadow glow + smooth hover fade. */
+    img.logo.style-scope.ytmusic-logo,
+    ytmusic-logo.style-scope.ytmusic-nav-bar a picture img.logo,
+    ytmusic-logo.style-scope.ytmusic-nav-bar a.yt-simple-endpoint picture.style-scope img.logo.style-scope {
+      filter: drop-shadow(0 0 4px ${colors.accent}) brightness(1.05) !important;
+      opacity: 0.88 !important;
+      transition: opacity 0.2s ease, filter 0.2s ease !important;
     }
-    /* Logo hover state — slight brightness lift for interactivity */
-    a.yt-simple-endpoint.ytmusic-logo:hover img,
-    a.yt-simple-endpoint.ytmusic-logo:hover picture img {
-      filter: ${logoFilter(colors.accent)} brightness(1.15) !important;
+    img.logo.style-scope.ytmusic-logo:hover,
+    ytmusic-logo.style-scope.ytmusic-nav-bar a picture img.logo:hover,
+    ytmusic-logo.style-scope.ytmusic-nav-bar a.yt-simple-endpoint picture.style-scope img.logo.style-scope:hover {
+      filter: drop-shadow(0 0 7px ${colors.accent}) brightness(1.15) !important;
+      opacity: 1 !important;
     }
   `;
 }
