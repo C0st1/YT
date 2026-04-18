@@ -264,6 +264,17 @@ function buildThemeCSS(colors) {
     ${NAV_SELECTORS} { background: ${colors.bgNav} !important; }
     ${SIDEBAR_SELECTORS} { background: ${colors.bgNav} !important; }
 
+    /* === Logo (YouTube Music icon + "Music" text) ===
+       The logo is an <img> so inner SVG elements aren't CSS-styleable directly.
+       CSS hue-rotate shifts the red YouTube icon hue to the theme's accent,
+       while white (the "Music" text in the SVG) is unaffected by hue-rotate
+       — it stays white and stays readable on the dark nav bar. */
+    ytmusic-logo img.logo,
+    ytmusic-logo .logo {
+      filter: ${colors.logoFilter || 'none'} !important;
+      transition: filter 0.3s ease !important;
+    }
+
     /* === Text === */
     ${TEXT_SELECTORS} { color: ${colors.text} !important; }
     .second-byline, .detail { color: ${colors.accent} !important; }
@@ -1695,7 +1706,9 @@ const BUILTIN_THEMES = {
       bgInput: '#26233a',  // Overlay
       bgHover: '#403d52',  // Highlight Med
       hover: '#524f67',    // Highlight High
-      border: '#26233a'    // Overlay
+      border: '#26233a',   // Overlay
+      // Logo: shift red YouTube icon → lavender (accent hue ~275°), desaturated & brightened
+      logoFilter: 'hue-rotate(275deg) saturate(60%) brightness(160%)'
     }
   },
   'tokyo-night': {
@@ -1709,7 +1722,9 @@ const BUILTIN_THEMES = {
       bgInput: '#292e42',  // terminal_black / bg_highlight
       bgHover: '#343b53',  // visual
       hover: '#414868',    // visual select
-      border: '#292e42'    // bg_highlight
+      border: '#292e42',   // bg_highlight
+      // Logo: shift red YouTube icon → blue (accent hue ~222°)
+      logoFilter: 'hue-rotate(222deg) saturate(80%) brightness(140%)'
     }
   },
   'nord': {
@@ -1723,7 +1738,9 @@ const BUILTIN_THEMES = {
       bgInput: '#3b4252',  // nord1 Polar Night
       bgHover: '#434c5e',  // nord2 Polar Night
       hover: '#4c566a',    // nord3 Polar Night
-      border: '#3b4252'    // nord1
+      border: '#3b4252',   // nord1
+      // Logo: shift red YouTube icon → arctic cyan (accent hue ~193°)
+      logoFilter: 'hue-rotate(193deg) saturate(55%) brightness(135%)'
     }
   },
   'midnight-emerald': {
@@ -1737,7 +1754,9 @@ const BUILTIN_THEMES = {
       bgInput: '#151820',   // input/surface background
       bgHover: '#1c2030',   // hover state
       hover: '#232840',     // deeper hover
-      border: '#1c2030'     // border/separator
+      border: '#1c2030',    // border/separator
+      // Logo: shift red YouTube icon → mint green (accent hue ~157°)
+      logoFilter: 'hue-rotate(157deg) saturate(85%) brightness(145%)'
     }
   }
 };
